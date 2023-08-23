@@ -2,9 +2,8 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <string.h> // memcpy
-#include <unistd.h>
+#include <unistd.h>  // sbrk
 #include "segregated.h"
 
 
@@ -122,7 +121,7 @@ static inline uint64_t hash_size(const HashTable ht)
     return ht->elements;
 }
 
-static inline bool hash_insert(const HashTable ht, const Pointer key, const char value)
+static inline void hash_insert(const HashTable ht, const Pointer key, const char value)
 {
     // check to see if value already exists in the hash table
     const uint32_t hash_value = hash_ptr(key);
@@ -137,7 +136,6 @@ static inline bool hash_insert(const HashTable ht, const Pointer key, const char
     insert(ht, key, value, hash_value);
 
     ht->elements++;  // value inserted, increment the number of elements in the hash table
-    return true;
 }
 
 static inline void insert(const HashTable ht, const Pointer key, const char value, const uint32_t hash_value)
@@ -308,7 +306,6 @@ static inline void mem_pool_reset(const allocator_ss alloc)
 static void mem_pool_create(const allocator_ss alloc)
 {
     alloc->mpool = allocate_memory(sizeof(*alloc->mpool));
-    assert(alloc->mpool != NULL);
     mem_pool_reset(alloc);
 }
 
@@ -373,7 +370,6 @@ static Pointer find_memory(const allocator_ss alloc, const size_t pool_index)
 allocator_ss seg_create(void)
 {
     const allocator_ss alloc = allocate_memory(sizeof(*alloc));
-    assert(alloc != NULL);
 
     mem_pool_create(alloc);
     alloc->pages = hash_create();
@@ -448,6 +444,7 @@ void seg_destroy(const allocator_ss alloc)
     // destroy metadata
     hash_destroy(alloc->pages);
 
+    // destroy memory used by the pages
     for (size_t i = 0; i < SIZES_NUM; i++)
         destoy_pages(alloc->free_pages[i]);
 }

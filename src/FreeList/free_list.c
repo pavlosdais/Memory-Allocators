@@ -1,6 +1,5 @@
 #include <stdio.h>
-#include <unistd.h>
-#include <stdbool.h>
+#include <unistd.h>  // sbrk
 #include "free_list.h"
 
 // Define a structure for a block in the free list

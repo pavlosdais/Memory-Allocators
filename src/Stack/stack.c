@@ -1,6 +1,5 @@
 #include <stdio.h>
-#include <unistd.h>
-#include <assert.h>
+#include <unistd.h>  // sbrk
 #include "stack.h"
 
 struct _stack_alloc
