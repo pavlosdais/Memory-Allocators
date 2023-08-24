@@ -123,7 +123,7 @@ static inline uint64_t hash_size(const HashTable ht)
 
 static inline void hash_insert(const HashTable ht, const Pointer key, const char value)
 {
-    // check to see if value already exists in the hash table
+    // hash the value
     const uint32_t hash_value = hash_ptr(key);
 
     if (((float)ht->elements / get_hash(ht->capacity)) > MAX_LOAD_FACTOR)  // max load factor exceeded, try to rehash
@@ -235,14 +235,6 @@ static void hash_destroy(const HashTable ht)
 // ==================================== List ================================================
 //////////////////////////////////////////////////////////////////////////////////////////////
 
-// use sbrk to allocate memory
-static inline Pointer allocate_memory(const size_t size)
-{
-    const Pointer memory = sbrk(size);
-    if (memory == (Pointer)-1) return NULL;
-    return memory;
-}
-
 static inline void insert_page(list_ptr* S, const Pointer value)
 {
     const list_ptr new_node = malloc(sizeof(*new_node));
@@ -277,12 +269,19 @@ static void destoy_pages(list_ptr S)
 // =================================== Memory ===============================================
 //////////////////////////////////////////////////////////////////////////////////////////////
 
+// use sbrk to allocate memory
+static inline Pointer allocate_memory(const size_t size)
+{
+    const Pointer memory = sbrk(size);
+    if (memory == (Pointer)-1) return NULL;
+    return memory;
+}
+
 // memory is PAGESIZE-aligned so we find the previous number of addr, divisible by the PAGESIZE,
 // to find the page the addr potentially belongs to
 static inline Pointer search_page(const Pointer addr)
 {
     const size_t remainder = (size_t)addr % PAGESIZE;
-    if (remainder == 0) return addr;
     return addr - remainder;
 }
 
@@ -405,19 +404,22 @@ Pointer seg_realloc(const allocator_ss alloc, const Pointer obj,  const size_t s
 
     // object does not belong in the allocator's pool
     if (stack_index == -1) return NULL;
-
-    // requested object is bigger than a page, use malloc
+    
     const size_t obj_size = pool_sizes[stack_index];
-    if (size > PAGESIZE)
-    {
-        const Pointer new_object = malloc(size);
-        memcpy(new_object, obj, obj_size);
-        return new_object;
-    }
+    Pointer new_object;
 
-    const Pointer new_object = seg_alloc(alloc, find_nearest_size(size));
+    // requested object is larger than a page, use malloc
+    if (size > PAGESIZE)
+        new_object = malloc(size);
+    else
+    {
+        const size_t new_size = find_nearest_size(size);
+        if (new_size == obj_size) return obj;  // new size is the same the old size, no need to allocate new memory for it
+        new_object = seg_alloc(alloc, new_size);
+    }
+    
     memcpy(new_object, obj, obj_size);
-    insert_page(&alloc->free_pages[stack_index], obj);
+    insert_page(&alloc->free_pages[stack_index], obj);    
     return new_object;
 }
 
