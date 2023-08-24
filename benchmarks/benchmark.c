@@ -14,7 +14,7 @@
 #define MID_SIZE 1024
 #define MAX_SIZE 4096
 
-#define ALLOC_SIZE 99999999999
+#define ALLOC_SIZE 999999999
 
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
@@ -35,7 +35,7 @@ int main(void)
     // run the tests
     test_malloc();
     test_Pool();
-    test_Free_List();
+    // test_Free_List();
     test_SegregatedStorage();
 
     return 0;

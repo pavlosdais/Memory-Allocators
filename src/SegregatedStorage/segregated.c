@@ -87,7 +87,6 @@ static const uint64_t hash_sizes[] =
 #define COMPARE_PTR(v1, v2) ((size_t)v1-(size_t)v2)
 
 // function prototypes
-static inline void insert(const HashTable, const Pointer, const char, const uint32_t);
 static inline void rehash(const HashTable);
 static inline char hash_search(const HashTable, const Pointer, uint32_t*);
 
@@ -131,16 +130,7 @@ static inline void hash_insert(const HashTable ht, const Pointer key, const char
         if (get_hash(ht->capacity) != hash_sizes[sizeof(hash_sizes) / sizeof(hash_sizes[0]) - 1])  // if a new, available, size exists
             rehash(ht);  // rehash
     }
-    
-    // insert value
-    insert(ht, key, value, hash_value);
 
-    ht->elements++;  // value inserted, increment the number of elements in the hash table
-}
-
-static inline void insert(const HashTable ht, const Pointer key, const char value, const uint32_t hash_value)
-{
-    // create new bucket (list)
     node* new_node = malloc(sizeof(node));
     assert(new_node != NULL);  // allocation failure
 
@@ -153,6 +143,8 @@ static inline void insert(const HashTable ht, const Pointer key, const char valu
     const uint32_t bucket = hash_value % get_hash(ht->capacity);
     new_node->next = ht->buckets[bucket];
     ht->buckets[bucket] = new_node;
+
+    ht->elements++;  // value inserted, increment the number of elements in the hash table
 }
 
 static void rehash(HashTable ht)
@@ -170,15 +162,15 @@ static void rehash(HashTable ht)
     for (uint64_t i = 0; i < get_hash(old_capacity); i++)
     {
         node* bkt = old_buckets[i];
-    
         while (bkt != NULL)
         {
-            node* tmp = bkt;
-            bkt = bkt->next;
-            
-            insert(ht, tmp->key, tmp->data, tmp->hash_value);
+            node* next = bkt->next;
 
-            free(tmp);
+            const uint32_t bucket = bkt->hash_value % get_hash(ht->capacity);
+            bkt->next = ht->buckets[bucket];
+            ht->buckets[bucket] = bkt;
+
+            bkt = next;
         }
     }
     free(old_buckets);
@@ -403,7 +395,8 @@ Pointer seg_realloc(const allocator_ss alloc, const Pointer obj,  const size_t s
     const char stack_index = hash_exists(alloc->pages, page);
 
     // object does not belong in the allocator's pool
-    if (stack_index == -1) return NULL;
+    if (stack_index == -1)
+        return realloc(obj, size);
     
     const size_t obj_size = pool_sizes[stack_index];
     Pointer new_object;

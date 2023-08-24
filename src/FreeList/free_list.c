@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>  // sbrk
+#include <stdint.h>  // uintptr_t
+#include <stddef.h>  // max_align_t
+#include <math.h>  // log2
 #include "free_list.h"
 
 // Define a structure for a block in the free list
@@ -16,11 +19,31 @@ struct _free_allocator
     list_ptr free_list;
 };
 
+static inline size_t min(const size_t a, const size_t b)  { return a < b ? a : b; }
+
+// use sbrk to allocate memory
+static Pointer allocate_memory(const size_t size)
+{
+    const Pointer memory = sbrk(size);
+    if (memory == (Pointer)-1) return NULL;
+    return memory;
+}
+
+static Pointer allocate_aligned_memory(const size_t size, const size_t alignment)
+{
+    const Pointer unaligned_memory = allocate_memory(size + alignment - 1);
+    const Pointer aligned_memory = (Pointer)(((uintptr_t)unaligned_memory + (alignment - 1)) & ~(alignment - 1));
+    return aligned_memory;
+}
 
 allocator_f frl_create(const size_t size)
 {
-    const Pointer memory = sbrk(size + sizeof(struct _free_allocator));
-    if (memory == (Pointer)-1) return NULL;
+    const size_t mem_size = size + sizeof(struct _free_allocator);
+    const size_t allignment = min(1 << (size_t)log2(mem_size), _Alignof(max_align_t));
+
+    Pointer memory = allocate_aligned_memory(mem_size, allignment);
+    if (memory == NULL)
+        return NULL;
 
     const allocator_f alloc = memory;
     alloc->free_list = memory + sizeof(struct _free_allocator);
@@ -60,6 +83,7 @@ Pointer frl_alloc(const allocator_f alloc, const size_t size)
             return (Pointer)curr + sizeof(_list_ptr);
         }
 
+
         prev = curr;
         curr = curr->next;
     }
@@ -80,23 +104,11 @@ void frl_free(const allocator_f alloc, const Pointer obj)
     list_ptr curr = alloc->free_list, prev = NULL;
     while (curr != NULL)
     {
-        const list_ptr next_block = curr->next;
-
-        // the next block is adjacent to the freed block
-        if (next_block && block + block->size + sizeof(_list_ptr) == next_block)
+        if (prev && prev + prev->size + sizeof(_list_ptr) == curr)
         {
-            // merge them
-            block->size +=  next_block->size + sizeof(_list_ptr);
-            block->next = next_block->next;
-            break;
-        }
-        // the previous block is adjacent to the freed block
-        else if (prev && prev + prev->size + sizeof(_list_ptr) == block)
-        {
-            // merge them
-            prev->size += block->size + sizeof(_list_ptr);
-            prev->next = block->next;
-            break;
+            prev->size += curr->size + sizeof(_list_ptr);
+            prev->next = curr->next;
+            curr = prev;
         }
 
         prev = curr;

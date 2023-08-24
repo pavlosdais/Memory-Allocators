@@ -1,6 +1,6 @@
 EXEC = benchmarks
 CC = gcc
-flags = -Wall -Wextra -Werror -g
+flags = -Wall -Wextra -Werror -g -lm
 
 FR_DIR = ../src/FreeList
 P_DIR = ../src/Pool
