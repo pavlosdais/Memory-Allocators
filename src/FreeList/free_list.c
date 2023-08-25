@@ -1,8 +1,6 @@
 #include <stdio.h>
-#include <unistd.h>  // sbrk
-#include <stdint.h>  // uintptr_t
+#include <stdlib.h>
 #include <stddef.h>  // max_align_t
-#include <math.h>  // log2
 #include "free_list.h"
 
 // Define a structure for a block in the free list
@@ -19,36 +17,23 @@ struct _free_allocator
     list_ptr free_list;
 };
 
-static inline size_t min(const size_t a, const size_t b)  { return a < b ? a : b; }
-
-// use sbrk to allocate memory
-static Pointer allocate_memory(const size_t size)
-{
-    const Pointer memory = sbrk(size);
-    if (memory == (Pointer)-1) return NULL;
-    return memory;
-}
-
-static Pointer allocate_aligned_memory(const size_t size, const size_t alignment)
-{
-    const Pointer unaligned_memory = allocate_memory(size + alignment - 1);
-    const Pointer aligned_memory = (Pointer)(((uintptr_t)unaligned_memory + (alignment - 1)) & ~(alignment - 1));
-    return aligned_memory;
-}
-
 allocator_f frl_create(const size_t size)
 {
-    const size_t mem_size = size + sizeof(struct _free_allocator);
-    const size_t allignment = min(1 << (size_t)log2(mem_size), _Alignof(max_align_t));
+    // round up for alignment
+    const size_t alignment = _Alignof(max_align_t);
+    const size_t struct_size = sizeof(struct _free_allocator);
 
-    Pointer memory = allocate_aligned_memory(mem_size, allignment);
-    if (memory == NULL)
-        return NULL;
+    // alligned size
+    const size_t struct_aligned = struct_size + (-struct_size & (alignment - 1));
+
+    const size_t mem_size = size + struct_aligned;
+    const Pointer memory = malloc(mem_size);
+    if (!memory) return NULL;
 
     const allocator_f alloc = memory;
-    alloc->free_list = memory + sizeof(struct _free_allocator);
+    alloc->free_list = memory + struct_aligned;
 
-    alloc->free_list->size = size - sizeof(_list_ptr);
+    alloc->free_list->size = size - (size_t)sizeof(_list_ptr);
     alloc->free_list->next = NULL;
 
     return alloc;

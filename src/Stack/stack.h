@@ -15,3 +15,6 @@ Pointer st_alloc(const allocator_s, const size_t);
 // deallocate the object
 // only works if the object is the last deallocated
 void st_free(const allocator_s, const Pointer);
+
+// destory memory used by the allocator
+void st_destroy(const allocator_s alloc);

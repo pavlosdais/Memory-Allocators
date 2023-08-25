@@ -7,7 +7,7 @@
 #include "../src/Stack/stack.h"
 
 #define ITERATION_NUM 10
-#define NUM_OPERATIONS_PER_ITERATION 1000000
+#define NUM_OPERATIONS_PER_ITERATION 10000
 #define ALLOC_PROBABILITY 0.5
 
 #define MIN_SIZE 64
@@ -24,6 +24,7 @@
 
 // function prototypes
 void test_malloc(void);
+void test_stack(void);
 void test_SegregatedStorage(void);
 void test_Pool(void);
 void test_Free_List(void);
@@ -34,6 +35,7 @@ int main(void)
 
     // run the tests
     test_malloc();
+    test_stack();
     test_Pool();
     // test_Free_List();
     test_SegregatedStorage();
@@ -93,7 +95,7 @@ void test_SegregatedStorage(void)
         time_scenario3 += run_seg(alloc, MAX_SIZE);
     printf("\tScenario 3: Large Allocations\n\tElapsed time: %.4f seconds\n", time_scenario3/RUN_TIMES);
 
-    seg_destroy(alloc); // clean up
+    seg_destroy(alloc);  // clean up
 }
 
 double run_pool(const allocator_p alloc)
@@ -201,6 +203,47 @@ void test_Free_List(void)
     printf("\tScenario 3: Large Allocations\n\tElapsed time: %.4f seconds\n", time_scenario3/RUN_TIMES);
 }
 
+double run_stack(const allocator_s alloc, const size_t max_size)
+{
+    const clock_t start_time = clock();
+
+    for (size_t iter = 0; iter < ITERATION_NUM; iter++)
+    {
+        Pointer* ptrs = calloc(NUM_OPERATIONS_PER_ITERATION, sizeof(Pointer));
+        for (size_t op = 1; op < NUM_OPERATIONS_PER_ITERATION; op++)
+        {
+            const size_t size = 1 + rand() % max_size;
+            ptrs[op] = st_alloc(alloc, size);
+
+            // modified: always free the previous allocation
+            st_free(alloc, ptrs[op]);
+        }
+        free(ptrs);
+    }
+
+    return (double)(clock() - start_time) / CLOCKS_PER_SEC;
+}
+
+void test_stack(void)
+{
+    printf(ANSI_COLOR_RED "TESTING STACK ALLOCATOR..\n" ANSI_COLOR_RESET);
+    double time_scenario1 = 0, time_scenario2 = 0, time_scenario3 = 0;
+
+    allocator_s alloc = st_create(ALLOC_SIZE);
+    for (size_t i = 0; i < RUN_TIMES; i++)  // Scenario 1: Small Allocations
+        time_scenario1 += run_stack(alloc, MIN_SIZE);
+    printf("\tScenario 1: Small Allocations\n\tElapsed time: %.4f seconds\n\n", time_scenario1/RUN_TIMES);
+
+    for (size_t i = 0; i < RUN_TIMES; i++)  // Scenario 2: Varying Allocation Sizes
+        time_scenario2 += run_stack(alloc, MID_SIZE);
+    printf("\tScenario 2: Varying Allocation Sizes\n\tElapsed time: %.4f seconds\n\n", time_scenario2/RUN_TIMES);
+
+    for (size_t i = 0; i < RUN_TIMES; i++)  // Scenario 3: Large Allocations
+        time_scenario3 += run_stack(alloc, MAX_SIZE);
+    printf("\tScenario 3: Large Allocations\n\tElapsed time: %.4f seconds\n", time_scenario3/RUN_TIMES);
+
+    st_destroy(alloc); // clean up
+}
 
 double run_malloc(const size_t max_size)
 {

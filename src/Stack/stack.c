@@ -1,8 +1,6 @@
 #include <stdio.h>
-#include <unistd.h>  // sbrk
-#include <stdint.h>  // uintptr_t
+#include <stdlib.h>
 #include <stddef.h>  // max_align_t
-#include <math.h>  // log2
 #include "stack.h"
 
 struct _stack_alloc
@@ -11,34 +9,22 @@ struct _stack_alloc
     Pointer end;   // memory limit
 };
 
-static inline size_t min(const size_t a, const size_t b)  { return a < b ? a : b; }
-
-// use sbrk to allocate memory
-static inline Pointer allocate_memory(const size_t size)
-{
-    const Pointer memory = sbrk(size);
-    if (memory == (Pointer)-1) return NULL;
-    return memory;
-}
-
-static inline Pointer allocate_aligned_memory(const size_t size, const size_t alignment)
-{
-    const Pointer unaligned_memory = allocate_memory(size + alignment - 1);
-    const Pointer aligned_memory = (Pointer)(((uintptr_t)unaligned_memory + (alignment - 1)) & ~(alignment - 1));
-    return aligned_memory;
-}
-
 allocator_s st_create(const size_t size)
 {
-    const size_t mem_size = size + sizeof(struct _stack_alloc);
-    const size_t allignment = min(1 << (size_t)log2(mem_size), _Alignof(max_align_t));
-    const Pointer memory = allocate_aligned_memory(mem_size, allignment);
+    // round up for alignment
+    const size_t struct_size = sizeof(struct _stack_alloc);
+    const size_t alignment = _Alignof(max_align_t);
 
+    // alligned size
+    const size_t struct_aligned = struct_size + (-struct_size & (alignment - 1));
+
+    const size_t mem_size = size + struct_aligned;
+    const Pointer memory = malloc(mem_size);
+    if (!memory) return NULL;
+ 
     const allocator_s alloc = memory;
-
-    alloc->curr = memory + sizeof(struct _stack_alloc);
-    alloc->end = alloc->curr + size;
-
+    alloc->curr = memory + struct_aligned;
+    alloc->end  = memory + mem_size;
     return alloc;
 }
 
@@ -60,4 +46,10 @@ void st_free(const allocator_s alloc, const Pointer obj)
 
     const size_t obj_size = alloc->curr - obj;
     alloc->curr -= obj_size;
+}
+
+void st_destroy(const allocator_s alloc)
+{
+    if (!alloc) return;
+    free(alloc);
 }
